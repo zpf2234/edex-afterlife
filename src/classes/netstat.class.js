@@ -47,13 +47,18 @@ class Netstat {
         };
         let geolite2 = require("geolite2-redist");
         let maxmind = require("maxmind");
-        geolite2.downloadDbs(require("path").join(require("@electron/remote").app.getPath("userData"), "geoIPcache")).then(() => {
-           geolite2.open('GeoLite2-City', path => {
+        let geoIPcache = require("path").join(require("@electron/remote").app.getPath("userData"), "geoIPcache");
+        geolite2.downloadDbs({path: geoIPcache, dbList: ["GeoLite2-City"]}).then(() => {
+            return geolite2.open("GeoLite2-City", path => {
                 return maxmind.open(path);
-            }).catch(e => {throw e}).then(lookup => {
-                this.geoLookup = lookup;
-                this.lastconn.finished = true;
-            });
+            }, geoIPcache);
+        }).then(lookup => {
+            this.geoLookup = lookup;
+        }).catch(e => {
+            // Geolocation is optional, the rest of the module works without its database
+            require("electron").ipcRenderer.send("log", "note", `NetStat: GeoIP database unavailable (${e.message})`);
+        }).finally(() => {
+            this.lastconn.finished = true;
         });
     }
     updateInfo() {

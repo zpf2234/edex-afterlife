@@ -16,9 +16,9 @@ class UpdateChecker {
         https.get({
             protocol: "https:",
             host: "api.github.com",
-            path: "/repos/GitSquared/edex-ui/releases/latest",
+            path: "/repos/zpf2234/edex-afterlife/releases/latest",
             headers: {
-                "User-Agent": "eDEX-UI UpdateChecker"
+                "User-Agent": "eDEX-Afterlife UpdateChecker"
             }
         }, res => {
             switch(res.statusCode) {
@@ -54,7 +54,7 @@ class UpdateChecker {
                             new Modal({
                                 type: "info",
                                 title: "New version available",
-                                message: `eDEX-UI <strong>${release.tag_name}</strong> is now available.<br/>Head over to <a href="#" onclick="require('electron').shell.openExternal('${release.html_url}')">github.com</a> to download the latest version.`
+                                message: `eDEX Afterlife <strong>${release.tag_name}</strong> is now available.<br/>Head over to <a href="#" onclick="require('electron').shell.openExternal('${release.html_url}')">github.com</a> to download the latest version.`
                             });
                             electron.ipcRenderer.send("log", "info", `UpdateChecker: New version ${release.tag_name} available.`);
                         }

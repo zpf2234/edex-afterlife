@@ -3,11 +3,12 @@ class Terminal {
         if (opts.role === "client") {
             if (!opts.parentId) throw "Missing options";
 
-            this.xTerm = require("xterm").Terminal;
-            const {AttachAddon} = require("xterm-addon-attach");
-            const {FitAddon} = require("xterm-addon-fit");
-            const {LigaturesAddon} = require("xterm-addon-ligatures");
-            const {WebglAddon} = require("xterm-addon-webgl");
+            this.xTerm = require("@xterm/xterm").Terminal;
+            const {AttachAddon} = require("@xterm/addon-attach");
+            const {FitAddon} = require("@xterm/addon-fit");
+            // 0.10.0 ships without the lib/addon-ligatures.js its package.json points at
+            const {LigaturesAddon} = require("@xterm/addon-ligatures/lib/addon-ligatures.mjs");
+            const {WebglAddon} = require("@xterm/addon-webgl");
             this.Ipc = require("electron").ipcRenderer;
 
             this.port = opts.port || 3000;
@@ -110,13 +111,13 @@ class Terminal {
                 letterSpacing: window.theme.terminal.letterSpacing || 0,
                 lineHeight: window.theme.terminal.lineHeight || 1,
                 scrollback: 1500,
-                bellStyle: "none",
+                allowProposedApi: true,
                 theme: {
                     foreground: window.theme.terminal.foreground,
                     background: window.theme.terminal.background,
                     cursor: window.theme.terminal.cursor,
                     cursorAccent: window.theme.terminal.cursorAccent,
-                    selection: window.theme.terminal.selection,
+                    selectionBackground: window.theme.terminal.selection,
                     black: window.theme.colors.black || colorify("#2e3436", themeColor),
                     red: window.theme.colors.red || colorify("#cc0000", themeColor),
                     green: window.theme.colors.green || colorify("#4e9a06", themeColor),
@@ -176,7 +177,9 @@ class Terminal {
             let sockHost = opts.host || "127.0.0.1";
             let sockPort = this.port;
 
-            this.socket = new WebSocket("ws://"+sockHost+":"+sockPort);
+            let sockToken = this.Ipc.sendSync("terminal_token-"+sockPort);
+
+            this.socket = new WebSocket("ws://"+sockHost+":"+sockPort+"/?token="+sockToken);
             this.socket.onopen = () => {
                 let attachAddon = new AttachAddon(this.socket);
                 this.term.loadAddon(attachAddon);
@@ -317,7 +320,7 @@ class Terminal {
             this._disableCWDtracking = false;
             this._getTtyCWD = tty => {
                 return new Promise((resolve, reject) => {
-                    let pid = tty._pid;
+                    let pid = tty.pid;
                     switch(require("os").type()) {
                         case "Linux":
                             require("fs").readlink(`/proc/${pid}/cwd`, (e, cwd) => {
@@ -344,7 +347,7 @@ class Terminal {
             };
             this._getTtyProcess = tty => {
                 return new Promise((resolve, reject) => {
-                    let pid = tty._pid;
+                    let pid = tty.pid;
                     switch(require("os").type()) {
                         case "Linux":
                         case "Darwin":
@@ -419,15 +422,21 @@ class Terminal {
                 this.onclosed(code, signal);
             });
 
+            // Only the local frontend may drive the shell - see CVE-2023-30856
+            this.wsToken = require("crypto").randomBytes(32).toString("hex");
+            this.Ipc.removeAllListeners("terminal_token-"+this.port);
+            this.Ipc.on("terminal_token-"+this.port, e => {
+                e.returnValue = this.wsToken;
+            });
+
             this.wss = new this.Websocket({
+                host: "127.0.0.1",
                 port: this.port,
                 clientTracking: true,
                 verifyClient: info => {
-                    if (this.wss.clients.length >= 1) {
-                        return false;
-                    } else {
-                        return true;
-                    }
+                    if (this.wss.clients.size >= 1) return false;
+                    if (info.origin !== "file://") return false;
+                    return new URL(info.req.url, "ws://127.0.0.1").searchParams.get("token") === this.wsToken;
                 }
             });
             this.Ipc.on("terminal_channel-"+this.port, (e, ...args) => {
@@ -456,12 +465,12 @@ class Terminal {
                 }
             });
             this.wss.on("connection", ws => {
-                this.onopened(this.tty._pid);
+                this.onopened(this.tty.pid);
                 ws.on("close", (code, reason) => {
                     this.ondisconnected(code, reason);
                 });
-                ws.on("message", msg => {
-                    this.tty.write(msg);
+                ws.on("message", (msg, isBinary) => {
+                    this.tty.write(msg.toString(isBinary ? "latin1" : "utf8"));
                 });
                 this.tty.onData(data => {
                     this._nextTickUpdateTtyCWD = true;

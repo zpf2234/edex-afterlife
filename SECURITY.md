@@ -2,10 +2,14 @@
 
 ## Supported Versions
 
-We support the [latest released version](https://github.com/GitSquared/edex-ui/releases/latest), and the current development version (`master` branch).
+Only the latest [eDEX Afterlife release](https://github.com/zpf2234/edex-afterlife/releases) is supported. The original eDEX-UI is archived and is not covered by this policy.
 
 ## Reporting a Vulnerability
 
-If you're concerned about a potential or proven security vulnerability in this software, please get in touch by sending an email at [`gabriel@saillard.dev`](mailto:%22Gabriel%20SAILLARD%22%20%3Cgabriel%40saillard.dev%3E?subject=%5BSECURITY%5D%20eDEX-UI%20vulnerability%20concern&body=(Please%20describe%20what%20code%20you%20think%20is%20vulnerable%2C%20and%20provide%20a%20way%20to%20reproduce%20the%20issue%20if%20possible)).
+Please report vulnerabilities privately through [GitHub Security Advisories](https://github.com/zpf2234/edex-afterlife/security/advisories/new). Do not open a public issue.
 
-If your email subject contains the `[SECURITY]` tag, you will be surfaced to the front of my inbox and should expect a response in 24 hours or less. The link above will set you up with a subject template.
+This is a volunteer project, so response times are best effort.
+
+## Fixed Vulnerabilities
+
+- **CVE-2023-30856:** cross-site WebSocket hijacking of the local terminal, fixed in `0.1.0-preview.1`.
