@@ -417,6 +417,10 @@ class Terminal {
                                 }
                             });
                             break;
+                        case "Windows_NT":
+                            // Finding the foreground child would mean spawning a process on every tick
+                            resolve(require("path").basename(opts.shell || "", ".exe"));
+                            break;
                         default:
                             reject("Unsupported OS");
                     }

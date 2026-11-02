@@ -18,6 +18,8 @@ eDEX Afterlife 是 [GitSquared/edex-ui](https://github.com/GitSquared/edex-ui) �
 | 依赖 | 升级 `ws`、`systeminformation`；PDF 加载关闭 `isEvalSupported`；`geolite2-redist` 升到 4 |
 | Windows 体验 | PowerShell 和 cmd 在每次提示符时上报目录，文件面板能跟随 `cd`，支持中文和空格路径及多标签页 |
 | 中文输入 | 用 `inputmode` 替换 `readonly`，不再吞掉输入法提交的文本；触屏设备仍可隐藏软键盘 |
+| 网络面板 | 不绑定网卡探测出站连接，自动跟随系统实际路由，开启 VPN 时不再误报 OFFLINE |
+| 标签页 | Windows 上显示 Shell 名称；为避免每秒启动进程，暂不显示前台子进程 |
 | 兼容修复 | 内存校验、GeoIP 下载失败处理、`new-window` 事件、集群 API、终端 CSS、边框遮挡 |
 
 ## 验证
@@ -36,12 +38,10 @@ eDEX Afterlife 是 [GitSquared/edex-ui](https://github.com/GitSquared/edex-ui) �
 ## 尚未验证
 
 - macOS 和 Linux。
-- 人工操作、真实中文输入法、音效、全屏模式、各主题和键盘布局。
-- GeoIP 地图定位：测试网络下数据库和外网 IP 查询都未确认成功，地球仪显示 UNKNOWN。
+- 人工长时间使用、搜狗拼音以外的输入法、音效、全屏模式、各主题和键盘布局。
 
 ## 已知问题
 
-- 自动选网卡时可能选中被 VPN 拦截的网卡，导致显示 OFFLINE。可在设置里把 `iface` 改成实际出站网卡。
 - Windows 目录跟踪只支持 `shellArgs` 为空时的 PowerShell 和 cmd，其他 Shell 仍显示 `TRACKING FAILED`。
 - `@xterm/addon-ligatures` 0.10.0 缺少声明的入口文件，目前直接引用其 `.mjs`。
 - `pdfjs-dist` 仍是 2.11.338，只通过 `isEvalSupported: false` 缓解已知漏洞。

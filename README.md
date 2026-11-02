@@ -8,6 +8,8 @@
 
 <p align="center"><strong>English</strong> | <a href="README.zh-CN.md">简体中文</a></p>
 
+<p align="center"><a href="https://github.com/zpf2234/edex-afterlife/actions/workflows/test.yml"><img alt="Test status" src="https://github.com/zpf2234/edex-afterlife/actions/workflows/test.yml/badge.svg"></a></p>
+
 > [!IMPORTANT]
 > This project is **not affiliated with or endorsed by** eDEX-UI's author. All credit for the original design and software belongs to [Gabriel "Squared" Saillard](https://github.com/GitSquared) and the eDEX-UI contributors. Bugs in this version should be reported here, not upstream.
 
@@ -22,6 +24,7 @@ eDEX Afterlife keeps the original interface and brings it back to life:
 - Installs on Windows without Visual Studio or Python.
 - **Tracks the terminal's directory on Windows.** The file browser now follows `cd` in PowerShell and cmd, in every tab, instead of showing `TRACKING FAILED`.
 - **Accepts non-ASCII input.** Text committed outside plain key events, such as Chinese, is no longer dropped by the terminal.
+- **Works with VPNs.** The network panel follows the interface your system actually routes through.
 - Updates vulnerable dependencies and fixes the crashes that appeared on modern runtimes.
 
 See [REVIVAL.md](REVIVAL.md) for the full change list and test results.
@@ -40,9 +43,8 @@ Known limitations:
 
 - The installer is not code-signed, so Windows SmartScreen may show a warning.
 - The globe may show `UNKNOWN` when the GeoIP database or external IP lookup is unavailable.
-- If a VPN is active, automatic interface detection can show `OFFLINE`. Set `iface` in the settings to your active network interface.
 - On Windows, directory tracking supports PowerShell and cmd when `shellArgs` is empty. Other shells, such as Git Bash, fall back to `TRACKING FAILED`.
-- Chinese input passes automated tests, but hasn't been tested by hand with a real IME yet.
+- Chinese input has been tested with Sogou Pinyin on Windows 11. Other IMEs are untested.
 - `pdfjs-dist` is still on 2.11.338. PDF evaluation is disabled as a mitigation.
 
 ## Install

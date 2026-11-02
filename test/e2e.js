@@ -104,6 +104,16 @@ function wsAttempt(url, headers) {
     check("file browser tracks the shell directory", fsInfo.tracking && fsInfo.path === cwdTarget && !/TRACKING FAILED/.test(fsInfo.title), fsState);
     check("file browser lists the new directory", fsInfo.marker);
 
+    const tabTitle = await ev(() => document.getElementById("shell_tab0").innerText);
+    check("tab shows the shell name", /MAIN - (powershell|cmd)/i.test(tabTitle), tabTitle);
+
+    if (process.env.E2E_EXPECT_IFACE) {
+        await wait(5000);
+        const netState = await ev(() => JSON.stringify({iface: window.mods.netstat.iface, offline: window.mods.netstat.offline}));
+        const netInfo = JSON.parse(netState);
+        check("network panel picks the routed interface", netInfo.iface === process.env.E2E_EXPECT_IFACE && netInfo.offline === false, netState);
+    }
+
     // Attack: CVE-2023-30856 style connections
     const url = `ws://127.0.0.1:${PORT}/`;
     check("attack: evil origin, no token rejected", (await wsAttempt(url, {Origin: "https://evil.example"})) === "HTTP 401");

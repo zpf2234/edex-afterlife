@@ -27,6 +27,7 @@ class Netstat {
         this.offline = false;
         this.lastconn = {finished: false}; // Prevent geoip lookup attempt until maxminddb is loaded
         this.iface = null;
+        this.routedIPv4 = null;
         this.failedAttempts = {};
         this.runsBeforeGeoIPUpdate = 0;
 
@@ -80,22 +81,29 @@ class Netstat {
                     }
                 }
             } else {
-                // Find the first external, IPv4 connected networkInterface that has a MAC address set
+                // Prefer the interface the OS actually routes through, a VPN can make the others unusable
+                let routed = data.find(iface => iface.ip4 === this.routedIPv4);
 
-                while (net.operstate !== "up" || net.internal === true || net.ip4 === "" || net.mac === "") {
-                    netID++;
-                    if (data[netID]) {
-                        net = data[netID];
-                    } else {
-                        // No external connection!
-                        this.iface = null;
-                        document.getElementById("mod_netstat_iname").innerText = "Interface: (offline)";
+                if (routed) {
+                    net = routed;
+                } else {
+                    // Find the first external, IPv4 connected networkInterface that has a MAC address set
 
-                        this.offline = true;
-                        document.querySelector("#mod_netstat_innercontainer > div:first-child > h2").innerHTML = "OFFLINE";
-                        document.querySelector("#mod_netstat_innercontainer > div:nth-child(2) > h2").innerHTML = "--.--.--.--";
-                        document.querySelector("#mod_netstat_innercontainer > div:nth-child(3) > h2").innerHTML = "--ms";
-                        break;
+                    while (net.operstate !== "up" || net.internal === true || net.ip4 === "" || net.mac === "") {
+                        netID++;
+                        if (data[netID]) {
+                            net = data[netID];
+                        } else {
+                            // No external connection!
+                            this.iface = null;
+                            document.getElementById("mod_netstat_iname").innerText = "Interface: (offline)";
+
+                            this.offline = true;
+                            document.querySelector("#mod_netstat_innercontainer > div:first-child > h2").innerHTML = "OFFLINE";
+                            document.querySelector("#mod_netstat_innercontainer > div:nth-child(2) > h2").innerHTML = "--.--.--.--";
+                            document.querySelector("#mod_netstat_innercontainer > div:nth-child(3) > h2").innerHTML = "--ms";
+                            break;
+                        }
                     }
                 }
             }
@@ -144,7 +152,8 @@ class Netstat {
                     this.runsBeforeGeoIPUpdate = this.runsBeforeGeoIPUpdate - 1;
                 }
 
-                let p = await this.ping(window.settings.pingAddr || "1.1.1.1", 80, net.ip4).catch(() => { offline = true });
+                let customIface = typeof window.settings.iface === "string";
+                let p = await this.ping(window.settings.pingAddr || "1.1.1.1", 80, customIface ? net.ip4 : undefined).catch(() => { offline = true });
 
                 this.offline = offline;
                 if (offline) {
@@ -171,6 +180,7 @@ class Netstat {
             }, () => {
                 let time_arr = process.hrtime(start);
                 let time = (time_arr[0] * 1e9 + time_arr[1]) / 1e6;
+                if (!local) this.routedIPv4 = s.localAddress;
                 resolve(time);
                 s.destroy();
             });

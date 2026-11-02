@@ -8,6 +8,8 @@
 
 <p align="center"><a href="README.md">English</a> | <strong>简体中文</strong></p>
 
+<p align="center"><a href="https://github.com/zpf2234/edex-afterlife/actions/workflows/test.yml"><img alt="测试状态" src="https://github.com/zpf2234/edex-afterlife/actions/workflows/test.yml/badge.svg"></a></p>
+
 > [!IMPORTANT]
 > 本项目与 eDEX-UI 的作者**没有关联，也未获其认可**。原始设计和软件的全部功劳属于 [Gabriel "Squared" Saillard](https://github.com/GitSquared) 和 eDEX-UI 的贡献者。这个版本的问题请在本仓库反馈，不要提交到原项目。
 
@@ -22,6 +24,7 @@ eDEX Afterlife 保留原来的界面，让它重新运行起来：
 - 在 Windows 上安装不再需要 Visual Studio 或 Python。
 - **在 Windows 上跟踪终端目录。** 文件面板现在会在每个标签页中跟随 PowerShell 和 cmd 的 `cd`，不再显示 `TRACKING FAILED`。
 - **支持非 ASCII 输入。** 中文这类不是由普通按键直接产生的文本，不会再被终端吞掉。
+- **兼容 VPN。** 网络面板会跟随系统实际使用的网卡。
 - 升级有漏洞的依赖，并修复在新版运行环境中出现的崩溃。
 
 完整的改动和测试结果请看 [REVIVAL.md](REVIVAL.md)。
@@ -40,9 +43,8 @@ eDEX Afterlife 保留原来的界面，让它重新运行起来：
 
 - 安装包没有代码签名，Windows SmartScreen 可能会显示警告。
 - GeoIP 数据库或外网 IP 查询不可用时，地球仪可能显示 `UNKNOWN`。
-- 开启 VPN 时，自动选择网卡可能导致显示 `OFFLINE`。可以在设置中把 `iface` 改成实际使用的网卡。
 - 在 Windows 上，目录跟踪支持 `shellArgs` 为空时的 PowerShell 和 cmd。Git Bash 等其他 Shell 仍会回退到 `TRACKING FAILED`。
-- 中文输入已通过自动测试，但还没有用真实输入法人工验证。
+- 中文输入已在 Windows 11 上用搜狗拼音测试，其他输入法尚未测试。
 - `pdfjs-dist` 仍是 2.11.338，目前通过关闭 PDF 求值来缓解风险。
 
 ## 安装
