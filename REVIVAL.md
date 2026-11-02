@@ -42,6 +42,7 @@ eDEX Afterlife 是 [GitSquared/edex-ui](https://github.com/GitSquared/edex-ui) �
 
 ## 已知问题
 
+- 系统面板轮询频繁。在 GitHub Actions 这类负载很高的机器上，曾观察到终端输入延迟数十秒，后续会恢复。
 - Windows 目录跟踪只支持 `shellArgs` 为空时的 PowerShell 和 cmd，其他 Shell 仍显示 `TRACKING FAILED`。
 - `@xterm/addon-ligatures` 0.10.0 缺少声明的入口文件，目前直接引用其 `.mjs`。
 - `pdfjs-dist` 仍是 2.11.338，只通过 `isEvalSupported: false` 缓解已知漏洞。

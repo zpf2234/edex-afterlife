@@ -41,6 +41,7 @@ eDEX Afterlife 保留原来的界面，让它重新运行起来：
 
 已知限制：
 
+- 系统面板轮询频繁，在负载很高的机器上输入可能出现延迟。
 - 安装包没有代码签名，Windows SmartScreen 可能会显示警告。
 - GeoIP 数据库或外网 IP 查询不可用时，地球仪可能显示 `UNKNOWN`。
 - 在 Windows 上，目录跟踪支持 `shellArgs` 为空时的 PowerShell 和 cmd。Git Bash 等其他 Shell 仍会回退到 `TRACKING FAILED`。

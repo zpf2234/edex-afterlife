@@ -41,6 +41,7 @@ See [REVIVAL.md](REVIVAL.md) for the full change list and test results.
 
 Known limitations:
 
+- The system panels poll frequently, so typing can lag on heavily loaded machines.
 - The installer is not code-signed, so Windows SmartScreen may show a warning.
 - The globe may show `UNKNOWN` when the GeoIP database or external IP lookup is unavailable.
 - On Windows, directory tracking supports PowerShell and cmd when `shellArgs` is empty. Other shells, such as Git Bash, fall back to `TRACKING FAILED`.

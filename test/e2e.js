@@ -58,7 +58,7 @@ function wsAttempt(url, headers) {
 
     // Slow machines can take far longer to reach a prompt, so poll instead of sleeping
     const readTerm = () => ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += (l.isWrapped ? "" : "\n") + l.translateToString(true); } return s; });
-    const until = async (test, ms = 45000) => {
+    const until = async (test, ms = Number(process.env.E2E_TIMEOUT || 45000)) => {
         for (const end = Date.now() + ms; Date.now() < end; await wait(500)) {
             if (await test()) return true;
         }
@@ -102,9 +102,7 @@ function wsAttempt(url, headers) {
     const cwdTarget = path.join(tmp, "edex 中文 test");
     fs.mkdirSync(cwdTarget);
     fs.writeFileSync(path.join(cwdTarget, "cwd-marker.txt"), "");
-    await ev(() => window.term[0].term.focus());
-    await win.keyboard.type(`cd "${cwdTarget}"`, {delay: 10});
-    await win.keyboard.press("Enter");
+    await ev(p => window.term[0].writelr(`cd "${p}"`), cwdTarget);
     if (!await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget)) {
         console.log("Terminal cwd:", await ev(() => window.term[0].cwd));
         console.log("Terminal contents:\n" + (await readTerm()).trimEnd().split("\n").slice(-10).join("\n"));

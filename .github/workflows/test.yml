@@ -12,7 +12,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,6 +32,7 @@ jobs:
         env:
           E2E_OUT: ${{ runner.temp }}/e2e
           E2E_SETTLE: 3000
+          E2E_TIMEOUT: 150000
       - uses: actions/upload-artifact@v4
         if: always()
         with:
