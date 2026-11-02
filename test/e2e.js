@@ -4,7 +4,8 @@ const WebSocket = require("../src/node_modules/ws");
 const fs = require("fs"), path = require("path"), os = require("os"), http = require("http");
 
 const EDEX = path.join(__dirname, ".."), OUT = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-out-")), PORT = 3900;
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-"));
+// realpath because CI's temp dir can be an 8.3 short path, while shells report the long form
+const tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-")));
 fs.mkdirSync(OUT, {recursive: true});
 fs.writeFileSync(path.join(tmp, "settings.json"), JSON.stringify({
     shell: process.env.E2E_SHELL || "powershell.exe", shellArgs: "", cwd: tmp, keyboard: "en-US", theme: "tron", termFontSize: 15,
@@ -56,7 +57,7 @@ function wsAttempt(url, headers) {
     await wait(9000);
 
     // Slow machines can take far longer to reach a prompt, so poll instead of sleeping
-    const readTerm = () => ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s; });
+    const readTerm = () => ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += (l.isWrapped ? "" : "\n") + l.translateToString(true); } return s; });
     const until = async (test, ms = 45000) => {
         for (const end = Date.now() + ms; Date.now() < end; await wait(500)) {
             if (await test()) return true;
