@@ -5,6 +5,7 @@ const fs = require("fs"), path = require("path"), os = require("os"), http = req
 
 const EDEX = path.join(__dirname, ".."), OUT = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-out-")), PORT = 3900;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-"));
+fs.mkdirSync(OUT, {recursive: true});
 fs.writeFileSync(path.join(tmp, "settings.json"), JSON.stringify({
     shell: process.env.E2E_SHELL || "powershell.exe", shellArgs: "", cwd: tmp, keyboard: "en-US", theme: "tron", termFontSize: 15,
     audio: false, audioVolume: 0, disableFeedbackAudio: true, clockHours: 24, pingAddr: "1.1.1.1", port: PORT,
@@ -54,6 +55,21 @@ function wsAttempt(url, headers) {
     }
     await wait(9000);
 
+    // Slow machines can take far longer to reach a prompt, so poll instead of sleeping
+    const readTerm = () => ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s; });
+    const until = async (test, ms = 45000) => {
+        for (const end = Date.now() + ms; Date.now() < end; await wait(500)) {
+            if (await test()) return true;
+        }
+        return false;
+    };
+    const untilTermShows = async (text, count = 2) => {
+        const shown = await until(async () => (await readTerm()).split(text).length - 1 >= count);
+        if (!shown) console.log("Terminal contents:\n" + (await readTerm()).trimEnd().split("\n").slice(-12).join("\n"));
+        return shown;
+    };
+    check("shell reaches a prompt", await until(async () => />\s*$/.test((await readTerm()).trimEnd())));
+
     const bootText = await ev(() => document.getElementById("boot_screen") ? document.getElementById("boot_screen").innerText : "");
     check("UI booted without boot-screen error", !/Error|at file/.test(bootText), bootText.slice(0, 300));
     const mods = await ev(() => Object.keys(window.mods || {}));
@@ -61,9 +77,7 @@ function wsAttempt(url, headers) {
 
     const marker = "REVIVED" + Date.now();
     await ev(m => window.term[0].writelr(`echo ${m}; $PSVersionTable.PSVersion.Major`), marker);
-    await wait(4000);
-    const buf = await ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s; });
-    check("terminal executes real shell command", (buf.match(new RegExp(marker, "g")) || []).length >= 2);
+    check("terminal executes real shell command", await untilTermShows(marker));
 
     await wait(1000);
     fs.writeFileSync(path.join(OUT, "pixel.png"), await win.screenshot({clip: {x: 700, y: 480, width: 30, height: 30}}));
@@ -76,16 +90,12 @@ function wsAttempt(url, headers) {
     await ev(() => window.term[0].term.focus());
     await win.keyboard.type(`echo ${typed}`, {delay: 15});
     await win.keyboard.press("Enter");
-    await wait(3000);
-    const buf2 = await ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s; });
-    check("keyboard input reaches the shell", (buf2.match(new RegExp(typed, "g")) || []).length >= 2);
+    check("keyboard input reaches the shell", await untilTermShows(typed));
 
     // Text that doesn't map to plain key events, which is how IMEs commit Chinese
     await win.keyboard.type("echo 中文输入", {delay: 10});
     await win.keyboard.press("Enter");
-    await wait(2500);
-    const buf3 = await ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + String.fromCharCode(10); } return s; });
-    check("non-ASCII input reaches the shell", (buf3.match(/中文输入/g) || []).length >= 2);
+    check("non-ASCII input reaches the shell", await untilTermShows("中文输入"));
 
     // The file browser follows the shell, including non-ASCII paths with spaces
     const cwdTarget = path.join(tmp, "edex 中文 test");
@@ -94,7 +104,8 @@ function wsAttempt(url, headers) {
     await ev(() => window.term[0].term.focus());
     await win.keyboard.type(`cd "${cwdTarget}"`, {delay: 10});
     await win.keyboard.press("Enter");
-    await wait(5000);
+    await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget);
+    await wait(1500);
     const fsState = await ev(() => JSON.stringify({
         path: window.fsDisp.cwd_path, tracking: !window.fsDisp._noTracking,
         title: document.querySelector("section#filesystem > h3.title > p:first-of-type").innerText,
@@ -133,12 +144,11 @@ function wsAttempt(url, headers) {
     // Each tab keeps its own directory, and the file browser follows the active one
     const tabTarget = path.join(tmp, "second tab dir");
     fs.mkdirSync(tabTarget);
+    await until(async () => /> *$/.test(await ev(() => { const b = window.term[1].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s.trimEnd(); })));
     await ev(p => window.term[1].writelr(`cd "${p}"`), tabTarget);
-    await wait(4000);
-    check("file browser follows the active tab", (await ev(() => window.fsDisp.cwd_path)) === tabTarget);
+    check("file browser follows the active tab", await until(async () => (await ev(() => window.fsDisp.cwd_path)) === tabTarget));
     await ev(() => window.focusShellTab(0));
-    await wait(3000);
-    check("file browser returns with the first tab", (await ev(() => window.fsDisp.cwd_path)) === cwdTarget);
+    check("file browser returns with the first tab", await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget));
 
     // Attack an idle terminal: no client attached, so only origin and token checks can reject
     const reply = await ev(`() => new Promise(r => { const {ipcRenderer: i} = require("electron"); i.once("ttyspawn-reply", (e, m) => r(m)); i.send("ttyspawn", "true"); })`);
