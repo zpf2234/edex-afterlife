@@ -20,6 +20,40 @@ const results = [];
 const check = (name, ok, extra = "") => { results.push({name, ok}); console.log(`${ok ? "PASS" : "FAIL"} ${name} ${extra}`); };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
+// Two pages: Latin text with a standard font, then Chinese that relies on CMaps and has no embedded font
+function makePdf() {
+    const pages = ["BT /F1 36 Tf 72 700 Td (eDEX Afterlife) Tj ET", "BT /F2 36 Tf 72 700 Td <4E2D6587> Tj ET"];
+    const objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F2 8 0 R >> >> >>",
+        ...pages.map(c => `<< /Length ${c.length} >>
+stream
+${c}
+endstream`),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        "<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [9 0 R] >>",
+        "<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 2 >> >>"
+    ];
+    let pdf = "%PDF-1.7\n";
+    const offsets = objects.map((o, i) => { const at = pdf.length; pdf += `${i+1} 0 obj
+${o}
+endobj
+`; return at; });
+    const xref = pdf.length;
+    pdf += `xref
+0 ${objects.length+1}
+0000000000 65535 f 
+` + offsets.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("");
+    return pdf + `trailer
+<< /Size ${objects.length+1} /Root 1 0 R >>
+startxref
+${xref}
+%%EOF
+`;
+}
+
 function wsAttempt(url, headers) {
     return new Promise(res => {
         const s = new WebSocket(url, {headers});
@@ -42,7 +76,8 @@ function wsAttempt(url, headers) {
     app.process().stderr.on("data", d => main.push(String(d)));
     const win = await app.firstWindow();
     const errors = [];
-    win.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+    const warnings = [];
+    win.on("console", m => { if (m.type() === "error") errors.push(m.text()); else if (m.type() === "warning") warnings.push(m.text()); });
     win.on("pageerror", e => errors.push("pageerror: " + e.message));
     const cdp = await win.context().newCDPSession(win);
     const ev = async (fn, arg) => {
@@ -102,6 +137,7 @@ function wsAttempt(url, headers) {
     const cwdTarget = path.join(tmp, "edex 中文 test");
     fs.mkdirSync(cwdTarget);
     fs.writeFileSync(path.join(cwdTarget, "cwd-marker.txt"), "");
+    fs.writeFileSync(path.join(cwdTarget, "edex-test.pdf"), makePdf(), "latin1");
     await ev(p => window.term[0].writelr(`cd "${p}"`), cwdTarget);
     if (!await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget)) {
         console.log("Terminal cwd:", await ev(() => window.term[0].cwd));
@@ -117,6 +153,20 @@ function wsAttempt(url, headers) {
     const fsInfo = JSON.parse(fsState);
     check("file browser tracks the shell directory", fsInfo.tracking && fsInfo.path === cwdTarget && !/TRACKING FAILED/.test(fsInfo.title), fsState);
     check("file browser lists the new directory", fsInfo.marker);
+
+    // PDF viewer, opened from a non-ASCII path. Includes Chinese without embedded fonts and page navigation
+    const pdfInk = () => ev(() => { const c = document.querySelector(".pdf_canvas"); if (!c || !c.width) return 0; const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 128) n++; return n; });
+    await ev(() => window.fsDisp.openFile(window.fsDisp.cwd.findIndex(f => f.name === "edex-test.pdf")));
+    const pdfOpened = await until(async () => (await ev(() => (document.querySelector(".page_count") || {}).textContent)) === "2" && (await pdfInk()) > 200);
+    check("PDF viewer renders the first page", pdfOpened, `ink=${await pdfInk()}`);
+    await ev(() => document.querySelector(".next_page").click());
+    await until(async () => (await ev(() => document.querySelector(".page_num").textContent)) === "2");
+    await wait(2500);
+    await win.screenshot({path: path.join(OUT, "pdf-page2.png")});
+    check("PDF viewer renders Chinese without embedded fonts", (await pdfInk()) > 200, `ink=${await pdfInk()}`);
+    check("PDF work runs in a real worker", !warnings.some(w => /fake worker/i.test(w)));
+    await ev(() => Object.values(window.modals).forEach(m => m.close()));
+    await ev(() => window.term[0].term.focus());
 
     const tabTitle = await ev(() => document.getElementById("shell_tab0").innerText);
     check("tab shows the shell name", /MAIN - (powershell|cmd)/i.test(tabTitle), tabTitle);

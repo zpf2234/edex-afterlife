@@ -25,9 +25,12 @@ eDEX Afterlife keeps the original interface and brings it back to life:
 - **Tracks the terminal's directory on Windows.** The file browser now follows `cd` in PowerShell and cmd, in every tab, instead of showing `TRACKING FAILED`.
 - **Accepts non-ASCII input.** Text committed outside plain key events, such as Chinese, is no longer dropped by the terminal.
 - **Works with VPNs.** The network panel follows the interface your system actually routes through.
+- **Opens PDFs reliably.** The viewer uses pdf.js 6, handles non-ASCII paths and renders Chinese PDFs without embedded fonts.
 - Updates vulnerable dependencies and fixes the crashes that appeared on modern runtimes.
 
 See [REVIVAL.md](REVIVAL.md) for the full change list and test results.
+
+**Led and maintained by [zpf2234](https://github.com/zpf2234).** This revival focuses on making eDEX-UI work well for today's Windows and Chinese-speaking users.
 
 ## Status
 
@@ -46,7 +49,6 @@ Known limitations:
 - The globe may show `UNKNOWN` when the GeoIP database or external IP lookup is unavailable.
 - On Windows, directory tracking supports PowerShell and cmd when `shellArgs` is empty. Other shells, such as Git Bash, fall back to `TRACKING FAILED`.
 - Chinese input has been tested with Sogou Pinyin on Windows 11. Other IMEs are untested.
-- `pdfjs-dist` is still on 2.11.338. PDF evaluation is disabled as a mitigation.
 
 ## Install
 
@@ -104,8 +106,8 @@ The original README is kept unchanged in [ORIGINAL_README.md](ORIGINAL_README.md
 
 | Who | Contribution |
 |---|---|
-| [zpf2234](https://github.com/zpf2234) | Started and maintains the revival: chose the direction, reviewed the results and made release decisions |
-| [Claude Code](https://claude.com/claude-code) | AI coding assistant that carried out the dependency migration, security fix, compatibility fixes, tests and documentation under zpf2234's direction |
+| [zpf2234](https://github.com/zpf2234) | **Project lead and maintainer.** Started the revival, chose eDEX-UI as the project to bring back, set the Windows and Chinese-first direction, decided what to fix and in what order, reviewed the results, and owns every release |
+| [Claude Code](https://claude.com/claude-code) | AI coding assistant that implemented the changes under zpf2234's direction, including the dependency migration, security fix, tests and documentation |
 
 The revival's work is limited to the changes listed in [REVIVAL.md](REVIVAL.md). It does not claim authorship of the original software.
 

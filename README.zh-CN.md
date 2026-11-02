@@ -25,9 +25,12 @@ eDEX Afterlife 保留原来的界面，让它重新运行起来：
 - **在 Windows 上跟踪终端目录。** 文件面板现在会在每个标签页中跟随 PowerShell 和 cmd 的 `cd`，不再显示 `TRACKING FAILED`。
 - **支持非 ASCII 输入。** 中文这类不是由普通按键直接产生的文本，不会再被终端吞掉。
 - **兼容 VPN。** 网络面板会跟随系统实际使用的网卡。
+- **稳定打开 PDF。** 阅读器升级到 pdf.js 6，支持中文路径，也能显示未内嵌字体的中文 PDF。
 - 升级有漏洞的依赖，并修复在新版运行环境中出现的崩溃。
 
 完整的改动和测试结果请看 [REVIVAL.md](REVIVAL.md)。
+
+**由 [zpf2234](https://github.com/zpf2234) 主导和维护。** 这次复活专注于让 eDEX-UI 更好地服务今天的 Windows 用户和中文用户。
 
 ## 状态
 
@@ -46,7 +49,6 @@ eDEX Afterlife 保留原来的界面，让它重新运行起来：
 - GeoIP 数据库或外网 IP 查询不可用时，地球仪可能显示 `UNKNOWN`。
 - 在 Windows 上，目录跟踪支持 `shellArgs` 为空时的 PowerShell 和 cmd。Git Bash 等其他 Shell 仍会回退到 `TRACKING FAILED`。
 - 中文输入已在 Windows 11 上用搜狗拼音测试，其他输入法尚未测试。
-- `pdfjs-dist` 仍是 2.11.338，目前通过关闭 PDF 求值来缓解风险。
 
 ## 安装
 
@@ -104,8 +106,8 @@ npm run postbuild-windows
 
 | 贡献者 | 贡献 |
 |---|---|
-| [zpf2234](https://github.com/zpf2234) | 发起并维护复活项目：确定方向、验收结果并决定发布 |
-| [Claude Code](https://claude.com/claude-code) | AI 编程助手：在 zpf2234 的指导下完成依赖迁移、安全修复、兼容性修复、测试和文档 |
+| [zpf2234](https://github.com/zpf2234) | **项目负责人和维护者。** 发起这次复活，选定 eDEX-UI 作为复活项目，确定 Windows 和中文优先的方向，决定修复内容和先后顺序，验收结果，并负责每一次发布 |
+| [Claude Code](https://claude.com/claude-code) | AI 编程助手：在 zpf2234 的指导下实现具体改动，包括依赖迁移、安全修复、测试和文档 |
 
 本次复活的工作仅限于 [REVIVAL.md](REVIVAL.md) 中列出的改动，不主张原软件的作者身份。
 

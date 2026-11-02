@@ -1,12 +1,10 @@
 class DocReader {
     constructor(opts) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './node_modules/pdfjs-dist/build/pdf.worker.js';
+        const pdfjsAsset = asset => new URL("node_modules/pdfjs-dist/"+asset, document.baseURI).href;
         const modalElementId = "modal_" + opts.modalId;
         const path = opts.path;
         const scale = 1;
         const canvas = document.getElementById(modalElementId).querySelector(".pdf_canvas");
-        const context = canvas.getContext('2d');
-        const loadingTask = pdfjsLib.getDocument({url: path, isEvalSupported: false});
         let pdfDoc = null,
             pageNum = 1,
             pageRendering = false,
@@ -15,24 +13,22 @@ class DocReader {
 
         this.renderPage = (num) => {
             pageRendering = true;
-            loadingTask.promise.then(function (pdf) {
-                pdfDoc.getPage(num).then(function (page) {
-                    const viewport = page.getViewport({ scale: scale });
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+            pdfDoc.getPage(num).then((page) => {
+                const viewport = page.getViewport({ scale: scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
 
-                    const renderContext = {
-                        canvasContext: context,
-                        viewport: viewport,
-                    };
-                    const renderTask = page.render(renderContext);
-                    renderTask.promise.then(function () {
-                        pageRendering = false;
-                        if (pageNumPending !== null) {
-                            renderPage(pageNumPending);
-                            pageNumPending = null;
-                        }
-                    });
+                const renderContext = {
+                    canvas: canvas,
+                    viewport: viewport,
+                };
+                const renderTask = page.render(renderContext);
+                renderTask.promise.then(() => {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        this.renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
                 });
             });
             document.getElementById(modalElementId).querySelector(".page_num").textContent = num;
@@ -55,7 +51,7 @@ class DocReader {
         }
 
         this.onNextPage = () => {
-            if (pageNum >= pdfDoc.numPages) {
+            if (pdfDoc === null || pageNum >= pdfDoc.numPages) {
                 return;
             }
             pageNum++;
@@ -83,10 +79,28 @@ class DocReader {
         document.getElementById(modalElementId).querySelector(".zoom_in").addEventListener('click', this.zoomIn);
         document.getElementById(modalElementId).querySelector(".zoom_out").addEventListener('click', this.zoomOut);
 
-        loadingTask.promise.then((pdfDoc_) => {
+        // Read the file here because a "C:/..." path isn't a URL pdf.js could load
+        Promise.all([import(pdfjsAsset("build/pdf.min.mjs")), require("fs").promises.readFile(path)]).then(([pdfjsLib, data]) => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsAsset("build/pdf.worker.min.mjs");
+
+            return pdfjsLib.getDocument({
+                data: new Uint8Array(data),
+                isEvalSupported: false,
+                cMapUrl: pdfjsAsset("cmaps/"),
+                cMapPacked: true,
+                standardFontDataUrl: pdfjsAsset("standard_fonts/"),
+                wasmUrl: pdfjsAsset("wasm/")
+            }).promise;
+        }).then((pdfDoc_) => {
             pdfDoc = pdfDoc_;
             document.getElementById(modalElementId).querySelector(".page_count").textContent = pdfDoc.numPages;
             this.renderPage(pageNum);
+        }).catch(e => {
+            new Modal({
+                type: "error",
+                title: "Failed to open PDF",
+                message: window._escapeHtml(e.message)
+            });
         });
     }
 }
