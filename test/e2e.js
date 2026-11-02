@@ -105,7 +105,11 @@ function wsAttempt(url, headers) {
     await ev(() => window.term[0].term.focus());
     await win.keyboard.type(`cd "${cwdTarget}"`, {delay: 10});
     await win.keyboard.press("Enter");
-    await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget);
+    if (!await until(async () => (await ev(() => window.fsDisp.cwd_path)) === cwdTarget)) {
+        console.log("Terminal cwd:", await ev(() => window.term[0].cwd));
+        console.log("Terminal contents:\n" + (await readTerm()).trimEnd().split("\n").slice(-10).join("\n"));
+        await win.screenshot({path: path.join(OUT, "cwd-failure.png")});
+    }
     await wait(1500);
     const fsState = await ev(() => JSON.stringify({
         path: window.fsDisp.cwd_path, tracking: !window.fsDisp._noTracking,
