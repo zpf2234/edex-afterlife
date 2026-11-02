@@ -6,7 +6,7 @@ const fs = require("fs"), path = require("path"), os = require("os"), http = req
 const EDEX = path.join(__dirname, ".."), OUT = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-out-")), PORT = 3900;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "edex-e2e-"));
 fs.writeFileSync(path.join(tmp, "settings.json"), JSON.stringify({
-    shell: "powershell.exe", shellArgs: "", cwd: tmp, keyboard: "en-US", theme: "tron", termFontSize: 15,
+    shell: process.env.E2E_SHELL || "powershell.exe", shellArgs: "", cwd: tmp, keyboard: "en-US", theme: "tron", termFontSize: 15,
     audio: false, audioVolume: 0, disableFeedbackAudio: true, clockHours: 24, pingAddr: "1.1.1.1", port: PORT,
     nointro: true, nocursor: false, forceFullscreen: false, allowWindowed: true, excludeThreadsFromToplist: true,
     hideDotfiles: false, fsListView: false, experimentalGlobeFeatures: false, experimentalFeatures: false,
@@ -80,6 +80,30 @@ function wsAttempt(url, headers) {
     const buf2 = await ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + "\n"; } return s; });
     check("keyboard input reaches the shell", (buf2.match(new RegExp(typed, "g")) || []).length >= 2);
 
+    // Text that doesn't map to plain key events, which is how IMEs commit Chinese
+    await win.keyboard.type("echo 中文输入", {delay: 10});
+    await win.keyboard.press("Enter");
+    await wait(2500);
+    const buf3 = await ev(() => { const b = window.term[0].term.buffer.active; let s = ""; for (let i = 0; i < b.length; i++) { const l = b.getLine(i); if (l) s += l.translateToString(true) + String.fromCharCode(10); } return s; });
+    check("non-ASCII input reaches the shell", (buf3.match(/中文输入/g) || []).length >= 2);
+
+    // The file browser follows the shell, including non-ASCII paths with spaces
+    const cwdTarget = path.join(tmp, "edex 中文 test");
+    fs.mkdirSync(cwdTarget);
+    fs.writeFileSync(path.join(cwdTarget, "cwd-marker.txt"), "");
+    await ev(() => window.term[0].term.focus());
+    await win.keyboard.type(`cd "${cwdTarget}"`, {delay: 10});
+    await win.keyboard.press("Enter");
+    await wait(5000);
+    const fsState = await ev(() => JSON.stringify({
+        path: window.fsDisp.cwd_path, tracking: !window.fsDisp._noTracking,
+        title: document.querySelector("section#filesystem > h3.title > p:first-of-type").innerText,
+        marker: !!Array.from(document.querySelectorAll("#fs_disp_container h3")).find(e => e.innerText.includes("cwd-marker"))
+    }));
+    const fsInfo = JSON.parse(fsState);
+    check("file browser tracks the shell directory", fsInfo.tracking && fsInfo.path === cwdTarget && !/TRACKING FAILED/.test(fsInfo.title), fsState);
+    check("file browser lists the new directory", fsInfo.marker);
+
     // Attack: CVE-2023-30856 style connections
     const url = `ws://127.0.0.1:${PORT}/`;
     check("attack: evil origin, no token rejected", (await wsAttempt(url, {Origin: "https://evil.example"})) === "HTTP 401");
@@ -95,6 +119,16 @@ function wsAttempt(url, headers) {
     await wait(5000);
     const tab = await ev(() => !!(window.term[1] && window.term[1].socket && window.term[1].socket.readyState === 1));
     check("second terminal tab connects", tab);
+
+    // Each tab keeps its own directory, and the file browser follows the active one
+    const tabTarget = path.join(tmp, "second tab dir");
+    fs.mkdirSync(tabTarget);
+    await ev(p => window.term[1].writelr(`cd "${p}"`), tabTarget);
+    await wait(4000);
+    check("file browser follows the active tab", (await ev(() => window.fsDisp.cwd_path)) === tabTarget);
+    await ev(() => window.focusShellTab(0));
+    await wait(3000);
+    check("file browser returns with the first tab", (await ev(() => window.fsDisp.cwd_path)) === cwdTarget);
 
     // Attack an idle terminal: no client attached, so only origin and token checks can reject
     const reply = await ev(`() => new Promise(r => { const {ipcRenderer: i} = require("electron"); i.once("ttyspawn-reply", (e, m) => r(m)); i.send("ttyspawn", "true"); })`);

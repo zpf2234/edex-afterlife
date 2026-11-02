@@ -147,7 +147,10 @@ class Terminal {
                 return true;
             });
             // Prevent soft-keyboard on touch devices #733
-            document.querySelectorAll('.xterm-helper-textarea').forEach(textarea => textarea.setAttribute('readonly', 'readonly'))
+            // inputmode rather than readonly, which also swallows IME and other non-ASCII input
+            if (navigator.maxTouchPoints > 0) {
+                document.querySelectorAll('.xterm-helper-textarea').forEach(textarea => textarea.setAttribute('inputmode', 'none'));
+            }
             this.term.focus();
 
             this.Ipc.send("terminal_channel-"+this.port, "Renderer startup");
@@ -340,9 +343,64 @@ class Terminal {
                                 }
                             });
                             break;
+                        case "Windows_NT":
+                            if (this._shellReportsCwd) {
+                                resolve(this._reportedCwd || opts.cwd);
+                            } else {
+                                reject("Unsupported shell");
+                            }
+                            break;
                         default:
                             reject("Unsupported OS");
                     }
+                });
+            };
+            // Windows can't read another process' cwd, so have the shell announce it on each prompt
+            this._shellReportsCwd = false;
+            this._reportedCwd = null;
+            this._setupCwdReporting = (shell, params, env) => {
+                if (process.platform !== "win32" || params.length > 0) return {params, env};
+
+                switch(require("path").basename(shell).toLowerCase()) {
+                    case "powershell.exe":
+                    case "pwsh.exe":
+                        this._shellReportsCwd = true;
+                        return {
+                            env,
+                            params: ["-NoExit", "-EncodedCommand", Buffer.from([
+                                '$global:__edexPrompt = $function:prompt',
+                                'function global:prompt {',
+                                '    $prompt = & $global:__edexPrompt',
+                                '    $cwd = (Get-Location -PSProvider FileSystem).ProviderPath',
+                                '    "$([char]27)]9;9;`"$cwd`"$([char]7)$prompt"',
+                                '}'
+                            ].join("\n"), "utf16le").toString("base64")]
+                        };
+                    case "cmd.exe":
+                        this._shellReportsCwd = true;
+                        return {
+                            params,
+                            env: Object.assign({}, env, {PROMPT: '$E]9;9;"$P"$E\x5c'+(env.PROMPT || "$P$G")})
+                        };
+                    default:
+                        return {params, env};
+                }
+            };
+            this._watchCwdReports = tty => {
+                const report = /\x1b\]9;9;"([^"\x07\x1b]*)"(?:\x07|\x1b\x5c)/g;
+                let pending = "";
+
+                tty.onData(data => {
+                    let end = 0;
+                    let match;
+                    pending = (pending+data).slice(-4096);
+                    report.lastIndex = 0;
+                    while ((match = report.exec(pending)) !== null) {
+                        this._reportedCwd = match[1];
+                        this._nextTickUpdateTtyCWD = true;
+                        end = report.lastIndex;
+                    }
+                    pending = pending.slice(end);
                 });
             };
             this._getTtyProcess = tty => {
@@ -409,13 +467,19 @@ class Terminal {
                 }
             }, 1000);
 
-            this.tty = this.Pty.spawn(opts.shell || "bash", (opts.params.length > 0 ? opts.params : (process.platform === "win32" ? [] : ["--login"])), {
+            let spawnOpts = this._setupCwdReporting(opts.shell || "bash", (opts.params.length > 0 ? opts.params : (process.platform === "win32" ? [] : ["--login"])), opts.env || process.env);
+
+            this.tty = this.Pty.spawn(opts.shell || "bash", spawnOpts.params, {
                 name: opts.env.TERM || "xterm-256color",
                 cols: 80,
                 rows: 24,
                 cwd: opts.cwd || process.env.PWD,
-                env: opts.env || process.env
+                env: spawnOpts.env
             });
+
+            if (this._shellReportsCwd) {
+                this._watchCwdReports(this.tty);
+            }
 
             this.tty.onExit((code, signal) => {
                 this._closed = true;

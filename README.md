@@ -20,6 +20,8 @@ eDEX Afterlife keeps the original interface and brings it back to life:
 - Runs on Electron 45, with `@xterm/xterm` 6 and `node-pty` 1.1.
 - Fixes CVE-2023-30856: the terminal WebSocket only listens on `127.0.0.1`, and only accepts the app's own origin with a per-launch random token.
 - Installs on Windows without Visual Studio or Python.
+- **Tracks the terminal's directory on Windows.** The file browser now follows `cd` in PowerShell and cmd, in every tab, instead of showing `TRACKING FAILED`.
+- **Accepts non-ASCII input.** Text committed outside plain key events, such as Chinese, is no longer dropped by the terminal.
 - Updates vulnerable dependencies and fixes the crashes that appeared on modern runtimes.
 
 See [REVIVAL.md](REVIVAL.md) for the full change list and test results.
@@ -39,7 +41,8 @@ Known limitations:
 - The installer is not code-signed, so Windows SmartScreen may show a warning.
 - The globe may show `UNKNOWN` when the GeoIP database or external IP lookup is unavailable.
 - If a VPN is active, automatic interface detection can show `OFFLINE`. Set `iface` in the settings to your active network interface.
-- Current directory tracking is not available on Windows, so the file browser shows `TRACKING FAILED`.
+- On Windows, directory tracking supports PowerShell and cmd when `shellArgs` is empty. Other shells, such as Git Bash, fall back to `TRACKING FAILED`.
+- Chinese input passes automated tests, but hasn't been tested by hand with a real IME yet.
 - `pdfjs-dist` is still on 2.11.338. PDF evaluation is disabled as a mitigation.
 
 ## Install
